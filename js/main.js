@@ -1,10 +1,10 @@
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function () { // Wait for the DOM to load before running the script
     // Create the map and setting the center to be the USA and at an appropriate zoom scale as well
     var map = L.map('map').setView([37.1, -95.7], 4);
 
-    // Esri World Gray Canvas tile layer
-    var Esri_WorldGrayCanvas = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+    // Esri World Topo Layer. Something with Easily distinguishable state borders works best for this project.
+    var Esri_WorldTopoMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community',
         maxZoom: 16
     }).addTo(map);
 
@@ -71,30 +71,30 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             return response.text();
         })
-        .then(text => {
-            const rows = text.split('\n').map(row => row.split(','));
+        .then(text => { // Parse the CSV data
+            const rows = text.split('\n').map(row => row.split(',')); // Split the rows and columns
             const header = rows[0]; // Get header row
-            const data = rows.slice(1).map(row => {
-                return header.reduce((acc, key, i) => {
-                    acc[key] = row[i];
-                    return acc;
+            const data = rows.slice(1).map(row => { // Get data rows
+                return header.reduce((acc, key, i) => { // Reduce the data to an object
+                    acc[key] = row[i]; // Assign the value to the key
+                    return acc; // Return the accumulator
                 }, {});
             });
             addStateMarkers(data); // Call function to add markers
         })
-        .catch(error => {
-            console.error('Error loading CSV:', error);
+        .catch(error => { // Catch any errors
+            console.error('Error loading CSV:', error); // Log the error
         });
 
     // Function to add markers to the map
-    function addStateMarkers(data) {
-        for (const [state, coords] of Object.entries(stateCenters)) {
+    function addStateMarkers(data) { // Takes in the data as an argument
+        for (const [state, coords] of Object.entries(stateCenters)) { // Loop through the state centers
             const marker = L.marker(coords).addTo(map)
                 .bindPopup(`<b>${state}</b><br/>Click for data`)
                 .on('click', function () {
                     const stateData = data.find(row => row.State === state);
-                    if (stateData) {
-                        let popupContent = `<b>${state}</b><br/>`;
+                    if (stateData) { // If data is available for the state
+                        let popupContent = `<b>${state}</b><br/>`; // Start the popup content with the state name
                         // List years based on the available data
                         const years = [2000, 2005, 2010, 2015, 2019, 2020, 2021, 2022, 2023, 2024];
                         years.forEach(year => {
