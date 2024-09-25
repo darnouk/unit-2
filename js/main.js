@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function () { // Wait for the DOM to load before running the script
+document.addEventListener('DOMContentLoaded', function () {
     // Create the map and setting the center to be the USA and at an appropriate zoom scale as well
     var map = L.map('map').setView([37.1, -95.7], 4);
 
@@ -71,30 +71,30 @@ document.addEventListener('DOMContentLoaded', function () { // Wait for the DOM 
             }
             return response.text();
         })
-        .then(text => { // Parse the CSV data
-            const rows = text.split('\n').map(row => row.split(',')); // Split the rows and columns
+        .then(text => {
+            const rows = text.split('\n').map(row => row.split(','));
             const header = rows[0]; // Get header row
-            const data = rows.slice(1).map(row => { // Get data rows
-                return header.reduce((acc, key, i) => { // Reduce the data to an object
-                    acc[key] = row[i]; // Assign the value to the key
-                    return acc; // Return the accumulator
+            const data = rows.slice(1).map(row => {
+                return header.reduce((acc, key, i) => {
+                    acc[key] = row[i];
+                    return acc;
                 }, {});
             });
             addStateMarkers(data); // Call function to add markers
         })
-        .catch(error => { // Catch any errors
-            console.error('Error loading CSV:', error); // Log the error
+        .catch(error => {
+            console.error('Error loading CSV:', error);
         });
 
     // Function to add markers to the map
-    function addStateMarkers(data) { // Takes in the data as an argument
-        for (const [state, coords] of Object.entries(stateCenters)) { // Loop through the state centers
+    function addStateMarkers(data) {
+        for (const [state, coords] of Object.entries(stateCenters)) {
             const marker = L.marker(coords).addTo(map)
                 .bindPopup(`<b>${state}</b><br/>Click for data`)
                 .on('click', function () {
                     const stateData = data.find(row => row.State === state);
-                    if (stateData) { // If data is available for the state
-                        let popupContent = `<b>${state}</b><br/>`; // Start the popup content with the state name
+                    if (stateData) {
+                        let popupContent = `<b>${state}</b><br/>`;
                         // List years based on the available data
                         const years = [2000, 2005, 2010, 2015, 2019, 2020, 2021, 2022, 2023, 2024];
                         years.forEach(year => {
