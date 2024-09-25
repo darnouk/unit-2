@@ -2,9 +2,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // Create the map and setting the center to be the USA and at an appropriate zoom scale as well
     var map = L.map('map').setView([37.1, -95.7], 4);
 
-    // Esri World Gray Canvas tile layer
-    var Esri_WorldGrayCanvas = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+    // Esri World Topo Layer. Something with Easily distinguishable state borders works best for this project.
+    var Esri_WorldTopoMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community',
         maxZoom: 16
     }).addTo(map);
 
