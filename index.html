@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leaflet Map with State Centers</title>
+    <title>U.S. Mean Home Prices</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         body, html {
@@ -11,26 +11,34 @@
             padding: 0;
             height: 100%;
         }
-        #header { /* create a header for the map */
+        #header { /* Create a header for the map */
             background-color: #333;
             color: white;
             padding: 10px;
             text-align: center;
             font-size: 20px;
         }
+        #sliderContainer { /* Container for the slider */
+            text-align: center; /* Center the slider */
+            margin: 10px 0; /* Add some margin */
+        }
         #map {
-            height: calc(100vh - 50px); /* Adjust map height to fill remaining space after header instead of a set size which is harder to gauge */
+            height: calc(100vh - 100px); /* Adjust map height to fill remaining space after header and slider */
             width: 100%;
+        }
+        #yearLabel {
+            margin-right: 10px; /* Space between label and slider */
         }
     </style>
 </head>
 <body>
 
-<div id="header">US Mean Home Prices 2000-2024</div> <!-- header title -->
-<div id="map"></div>
+<div id="header">US Mean Single Family Home Prices 2000-2024</div> <!-- Header title -->
+</div>
+<div id="map"></div> <!-- Map container -->
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script src="js/main.js"></script> <!-- Link to main.js in the js folder we created earlier in the lab -->
+<script src="js/main.js"></script> <!-- Link to main.js in the js folder -->
 
 </body>
 </html>

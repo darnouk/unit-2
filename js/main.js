@@ -1,136 +1,277 @@
-document.addEventListener('DOMContentLoaded', function () {
-    // Create the map and setting the center to be the USA and at an appropriate zoom scale as well
-    var map = L.map('map').setView([37.1, -95.7], 4);
+// Initialize the Leaflet map
+var map = L.map('map').setView([37.8, -96], 4); // Center the map on the USA
 
-    // Esri World Topo Layer. Something with Easily distinguishable state borders works best for this project.
-    var Esri_WorldTopoMap = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community',
-        maxZoom: 16
-    }).addTo(map);
+// Add OpenStreetMap tile layer
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
 
-    // State center coordinates... For conciseness later on, can just pull this data from the csv instead of manually listing it out here
-    const stateCenters = {
-        AL: [32.806671, -86.791397],
-        AK: [61.370716, -152.404419],
-        AZ: [33.729759, -111.431221],
-        AR: [34.969704, -92.373123],
-        CA: [36.116203, -119.681564],
-        CO: [39.059811, -105.311104],
-        CT: [41.597782, -72.755371],
-        DE: [39.318523, -75.507141],
-        DC: [38.89511, -77.03637],
-        FL: [27.766279, -81.686785],
-        GA: [33.040619, -83.643074],
-        HI: [21.094318, -157.498337],
-        ID: [44.240459, -114.478828],
-        IL: [40.349457, -88.998828],
-        IN: [39.849426, -86.258278],
-        IA: [42.011539, -93.210526],
-        KS: [39.063946, -98.326917],
-        KY: [37.668140, -84.670067],
-        LA: [31.169546, -91.867805],
-        ME: [44.693947, -69.381927],
-        MD: [39.063946, -76.802101],
-        MA: [42.230171, -71.530106],
-        MI: [43.326618, -84.536095],
-        MN: [46.392507, -94.636230],
-        MS: [32.741646, -89.678696],
-        MO: [38.456085, -92.288368],
-        MT: [46.921925, -110.454353],
-        NE: [41.492537, -99.901813],
-        NV: [38.502003, -116.042633],
-        NH: [43.193852, -71.572395],
-        NJ: [40.298904, -74.521011],
-        NM: [34.840515, -106.248482],
-        NY: [42.165726, -74.948051],
-        NC: [35.630066, -79.806419],
-        ND: [47.528912, -99.784012],
-        OH: [40.388783, -82.764915],
-        OK: [35.565342, -96.928917],
-        OR: [43.933, -120.558],
-        PA: [40.590752, -77.209755],
-        RI: [41.680893, -71.511780],
-        SC: [33.856892, -80.945007],
-        SD: [44.299782, -99.438828],
-        TN: [35.747845, -86.692345],
-        TX: [31.169448, -99.387207],
-        UT: [40.299, -111.683],
-        VT: [44.045876, -72.710686],
-        VA: [37.769337, -78.169968],
-        WA: [47.400902, -121.490494],
-        WV: [38.491226, -80.954270],
-        WI: [44.268543, -89.616508],
-        WY: [42.755966, -107.302490]
-    };
+// Load the CSV data for average home prices
+let priceData = {};
+const years = [2000, 2005, 2010, 2015, 2019, 2020, 2021, 2022, 2023, 2024]; // Declare years here
 
-    // Used Fetch API to load CSV data...
-    fetch('data/real_estate_data.csv')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+fetch('data/real_estate_data.csv') // Update this path to your CSV file
+    .then(response => response.text())
+    .then(csvText => {
+        const rows = csvText.split('\n');
+        const headers = rows[0].split(','); // Assuming the first row contains headers
+
+        for (let i = 1; i < rows.length; i++) {
+            const cells = rows[i].split(',');
+            const state = cells[1]; // Use the correct index for State
+            const prices = {};
+
+            // Map each year to its average price
+            for (let j = 2; j < headers.length; j++) { // Start from index 2 for year prices
+                prices[headers[j]] = parseFloat(cells[j]); // Convert price to a float
             }
-            return response.text();
-        })
-        .then(text => {
-            const rows = text.split('\n').map(row => row.split(','));
-            const header = rows[0]; // Get header row
-            const data = rows.slice(1).map(row => {
-                return header.reduce((acc, key, i) => {
-                    acc[key] = row[i];
-                    return acc;
-                }, {});
-            });
-            addStateMarkers(data); // Call function to add markers
-        })
-        .catch(error => {
-            console.error('Error loading CSV:', error);
+            priceData[state] = prices; // Store prices under the state key
+        }
+        console.log(priceData); // Debug point
+    })
+    .then(() => {
+        // Load the GeoJSON data
+        return fetch('data/gz_2010_us_040_00_5m.json'); // Path to geojson for USA state boundaries
+    })
+    .then(response => response.json())
+    .then(geoJsonData => {
+        
+        // JENKS NATURAL BREAKS FORMULA FOR DYNAMIC PRICE RANGES (6 intervals) (VERY LONG)
+        function jenks(data, numClasses) {
+            data.sort((a, b) => a - b); // Sort data ascending
+
+            // Initialize matrices
+            const lowerClassLimits = Array.from({ length: data.length + 1 }, () =>
+                Array(numClasses + 1).fill(0)
+            );
+            const varianceCombinations = Array.from({ length: data.length + 1 }, () =>
+                Array(numClasses + 1).fill(Infinity)
+            );
+
+            for (let i = 1; i <= numClasses; i++) {
+                lowerClassLimits[1][i] = 1;
+                varianceCombinations[1][i] = 0;
+            }
+
+            for (let l = 2; l <= data.length; l++) {
+                let sum = 0;
+                let sumSquares = 0;
+                let w = 0;
+
+                for (let m = 1; m <= l; m++) {
+                    const lower = l - m + 1;
+                    const val = data[lower - 1];
+                    w++;
+                    sum += val;
+                    sumSquares += val * val;
+                    const variance = sumSquares - (sum * sum) / w; // Correctly scoped 'variance'
+
+                    if (lower !== 1) {
+                        for (let j = 2; j <= numClasses; j++) {
+                            if (varianceCombinations[l][j] >= variance + varianceCombinations[lower - 1][j - 1]) {
+                                lowerClassLimits[l][j] = lower;
+                                varianceCombinations[l][j] = variance + varianceCombinations[lower - 1][j - 1];
+                            }
+                        }
+                    }
+                }
+
+                lowerClassLimits[l][1] = 1;
+                varianceCombinations[l][1] = sumSquares - (sum * sum) / w; // Use correct variance calculation
+            }
+
+            let breaks = Array(numClasses).fill(0);
+            let k = data.length;
+
+            for (let j = numClasses; j >= 1; j--) {
+                breaks[j - 1] = data[lowerClassLimits[k][j] - 1];
+                k = lowerClassLimits[k][j] - 1;
+            }
+
+            return breaks;
+        }
+
+        // Function to calculate dynamic price ranges using Jenks natural breaks
+        function calculatePriceRangesForYear(year) {
+            const pricesForYear = [];
+
+            // Collect all state prices for the selected year
+            for (let state in priceData) {
+                const price = priceData[state]?.[year];
+                if (price) {
+                    pricesForYear.push(price);
+                }
+            }
+
+            // Calculate Jenks natural breaks with 6 intervals
+            const breaks = jenks(pricesForYear, 6);
+
+            // Create the price ranges with colors
+            return [
+                { min: breaks[0], max: breaks[1], color: '#ffffcc' },
+                { min: breaks[1], max: breaks[2], color: '#ffcc00' },
+                { min: breaks[2], max: breaks[3], color: '#ff9900' },
+                { min: breaks[3], max: breaks[4], color: '#ff6600' },
+                { min: breaks[4], max: breaks[5], color: '#ff3300' },
+                { min: breaks[5], max: Infinity, color: '#cc0000' }
+            ];
+        }
+
+        // Function to get color based on price and year
+        function getColor(price, year) {
+            const priceRanges = calculatePriceRangesForYear(year);
+
+            for (let range of priceRanges) {
+                if (price >= range.min && price <= range.max) {
+                    return range.color;
+                }
+            }
+            return '#ffffff'; // Default color if no range matches
+        }
+
+        // Create a container div to hold the year label and the slider
+        const controlContainer = document.createElement('div');
+        controlContainer.style.position = 'absolute';
+        controlContainer.style.bottom = '20px'; // Adjust vertical position
+        controlContainer.style.left = '50%'; // Horizontally center the container
+        controlContainer.style.transform = 'translateX(-50%)'; // Correct for centering offset
+        controlContainer.style.display = 'flex'; // Display label and slider inline
+        controlContainer.style.alignItems = 'center'; // Center items vertically
+
+        // Create a label to display the current year
+        const yearLabel = document.createElement('label');
+        yearLabel.innerText = "Year: " + years[0]; // Default year label for first year
+        yearLabel.style.marginRight = '10px'; // Add some space between the label and slider
+
+        // Create the slider input
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = 0; // Set min to 0 for array indexing
+        slider.max = 9; // Number of years - 1 (from 2000 to 2024) (will have to change this if/once i add more years
+        slider.value = 0; // Default to the first year
+
+        // Append the label and slider to the container
+        controlContainer.appendChild(yearLabel);
+        controlContainer.appendChild(slider);
+
+        // Append the container to the document body
+        document.body.appendChild(controlContainer);
+        // Create Previous and Next buttons (assigment requirement)
+        const prevButton = document.createElement('button');
+        prevButton.innerText = 'Previous';
+        prevButton.style.marginRight = '10px';
+
+        const nextButton = document.createElement('button');
+        nextButton.innerText = 'Next';
+        nextButton.style.marginLeft = '10px';
+
+        // Add functionality to the Previous button
+        prevButton.addEventListener('click', function () {
+            if (slider.value > slider.min) {
+                slider.value--; // Decrement slider value
+                updateMap(); // Update the map and legend
+            }
         });
 
-    // Function to add markers to the map
-    function addStateMarkers(data) {
-        for (const [state, coords] of Object.entries(stateCenters)) {
-            const marker = L.marker(coords).addTo(map)
-                .bindPopup(`<b>${state}</b><br/>Click for data`)
-                .on('click', function () {
-                    const stateData = data.find(row => row.State === state);
-                    if (stateData) {
-                        let popupContent = `<b>${state}</b><br/>`;
-                        // List years based on the available data
-                        const years = [2000, 2005, 2010, 2015, 2019, 2020, 2021, 2022, 2023, 2024];
-                        years.forEach(year => {
-                            const value = parseFloat(stateData[year]);
-                            if (!isNaN(value)) { // if not NaN (double negative, yes, then list year with home value)
-                                popupContent += `${year}: $${value.toLocaleString()}<br/>`;
-                            } else {
-                                popupContent += `${year}: No data available<br/>`; // else no data available for current year, then say this
-                            }
-                        });
+        // Add functionality to the Next button
+        nextButton.addEventListener('click', function () {
+            if (slider.value < slider.max) {
+                slider.value++; // Increment slider value
+                updateMap(); // Update the map and legend
+            }
+        });
 
-                        // Calculating the percent increase in real estate prices from 2000 to 2024 and then also 2020-2024
-                        const value2000 = parseFloat(stateData[2000]);
-                        const value2020 = parseFloat(stateData[2020]);
-                        const value2024 = parseFloat(stateData[2024]);
-                        if (!isNaN(value2000) && !isNaN(value2024)) {
-                            const percentIncrease = ((value2024 - value2000) / value2000) * 100;
-                            popupContent += `Percent Change from 2000 to 2024: ${percentIncrease.toFixed(2)}%<br/>`;
-                        } else {
-                            popupContent += `Percent Change from 2000 to 2024: Data unavailable<br/>`;
-                        }
-                        // 2020-2024 percent change. same formula
-                        if (!isNaN(value2020) && !isNaN(value2024)) {
-                            const percentIncrease = ((value2024 - value2020) / value2020) * 100;
-                            popupContent += `Percent Change from 2020 to 2024: ${percentIncrease.toFixed(2)}%<br/>`;
-                        } else {
-                            popupContent += `Percent Change from 2020 to 2024: Data unavailable<br/>`;
-                        }
+        // Append the buttons to the control container (next to the slider)
+        controlContainer.insertBefore(prevButton, slider);
+        controlContainer.appendChild(nextButton);
 
-                        this.setPopupContent(popupContent);
-                        this.openPopup();
-                    } else {
-                        this.setPopupContent(`No data available for ${state}`);
-                        this.openPopup();
-                    }
-                });
+        // Define the style for the GeoJSON features
+        function style(feature) {
+            const state = feature.properties.NAME; // Assuming NAME is the property for the state name
+            const price = priceData[state]?.[years[slider.value]]; // Get price for the selected year
+            return {
+                fillColor: getColor(price, years[slider.value]), // Get dynamic color based on Jenks breaks
+                weight: 1,
+                opacity: 1,
+                color: 'white',
+                dashArray: '3',
+                fillOpacity: 0.7
+            };
         }
-    }
-});
+
+        // Add the GeoJSON layer to the map
+        L.geoJSON(geoJsonData, {
+            style: style,
+            onEachFeature: function(feature, layer) {
+                const state = feature.properties.NAME;
+                const price = priceData[state]?.[years[slider.value]]; // Get price for the selected year
+                layer.bindPopup(`${state}: $${price ? price.toLocaleString() : "Data not available"}`); // Display state name and price
+            }
+        }).addTo(map);
+
+        // Create a legend control and position it in the bottom-right corner
+        const legend = L.control({ position: 'bottomright' });
+
+        legend.onAdd = function () {
+            const div = L.DomUtil.create('div', 'info legend');
+            div.innerHTML = ''; // Clear the legend content
+            return div;
+        };
+
+        legend.addTo(map);
+
+        // Function to update the legend based on the current price ranges
+        function updateLegend(priceRanges) {
+            const div = document.querySelector('.legend');
+            div.innerHTML = '<strong>Price Ranges</strong><br>'; // Title for legend
+
+            // Add price ranges to the legend
+            for (let i = 0; i < priceRanges.length; i++) {
+                const range = priceRanges[i];
+                const minPrice = range.min.toLocaleString(); // Format price with commas
+                const maxPrice = (range.max === Infinity) ? '∞' : range.max.toLocaleString(); // Display infinity symbol
+                // Add a colored square and the price range to the legend
+                div.innerHTML += `
+                    <i style="background:${range.color}; width: 18px; height: 18px; display: inline-block; margin-right: 5px;"></i>
+                    ${minPrice} - ${maxPrice} <br>
+                `;
+            }
+            div.style.padding = '10px'; // Add a small 10px padding to the legend
+            div.style.backgroundColor = 'rgba(255, 255, 255, 0.8)'; // Transparent white background
+            div.style.borderRadius = '5px'; // Rounded corners for the legend
+            div.style.boxShadow = '0 0 15px rgba(0, 0, 0, 0.2)'; // Subtle shadow for better visibility and a more "3D" look
+        }
+
+        // Function to update everything when the slider changes
+        function updateMap() {
+            yearLabel.innerText = "Year: " + years[slider.value]; // Update year label when slider changes
+
+            const priceRanges = calculatePriceRangesForYear(years[slider.value]); // Get dynamic price ranges
+
+            // Update the legend with the new price ranges
+            updateLegend(priceRanges);
+
+            // Update the map layers
+            map.eachLayer(function(layer) {
+                if (layer instanceof L.GeoJSON) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            L.geoJSON(geoJsonData, {
+                style: style,
+                onEachFeature: function(feature, layer) {
+                    const state = feature.properties.NAME;
+                    const price = priceData[state]?.[years[slider.value]]; // Get price for the selected year
+                    layer.bindPopup(`${state}: $${price ? price.toLocaleString() : "Data not available"}`); // Display state name and price
+                }
+            }).addTo(map);
+        }
+
+        // Initialize map and legend with default values
+        updateMap();
+
+        // Update the map and legend when the slider changes
+        slider.addEventListener('input', updateMap);
+    });
