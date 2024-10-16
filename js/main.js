@@ -11,7 +11,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 let priceData = {};
 const years = [2000, 2005, 2010, 2015, 2019, 2020, 2021, 2022, 2023, 2024]; // Declare years here
 
-fetch('data/real_estate_data.csv') // Update this path to your CSV file
+fetch('data/state_data.csv') // Update this path to your CSV file
     .then(response => response.text())
     .then(csvText => {
         const rows = csvText.split('\n');
@@ -32,7 +32,7 @@ fetch('data/real_estate_data.csv') // Update this path to your CSV file
     })
     .then(() => {
         // Load the GeoJSON data
-        return fetch('data/gz_2010_us_040_00_5m.json'); // Path to geojson for USA state boundaries
+        return fetch('data/state_borders.json'); // Path to geojson for USA state boundaries
     })
     .then(response => response.json())
     .then(geoJsonData => {
